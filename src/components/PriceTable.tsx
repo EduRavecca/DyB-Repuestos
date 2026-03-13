@@ -19,6 +19,7 @@ export default function PriceTable({ onSelectForQuote }: Props) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>("todas");
   const [editOpen, setEditOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Servicio | null>(null);
   const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: "Neumáticos" as Categoria });
 
