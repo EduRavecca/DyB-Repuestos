@@ -1,39 +1,45 @@
 import { useState } from "react";
-import { Servicio, Categoria, CATEGORIAS } from "@/lib/data";
+import { Servicio, loadCategorias } from "@/lib/data";
 import { useServicios } from "@/hooks/useServicios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Pencil, Trash2, Power, Upload } from "lucide-react";
-import BulkImport from "@/components/BulkImport";
+import { Search, Plus, Pencil, Trash2, Power, Tags } from "lucide-react";
+import AddServiceDialog from "@/components/AddServiceDialog";
+import CategoryManager from "@/components/CategoryManager";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
   onSelectForQuote?: (s: Servicio) => void;
 }
 
+const CAT_COLORS = [
+  "bg-accent/15 text-accent border-accent/30",
+  "bg-warning/15 text-warning border-warning/30",
+  "bg-success/15 text-success border-success/30",
+  "bg-primary/15 text-primary border-primary/30",
+  "bg-destructive/15 text-destructive border-destructive/30",
+];
+
 export default function PriceTable({ onSelectForQuote }: Props) {
-  const { servicios, addServicio, updateServicio, deleteServicio, toggleActivo } = useServicios();
+  const { servicios, updateServicio, deleteServicio, toggleActivo } = useServicios();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>("todas");
   const [editOpen, setEditOpen] = useState(false);
-  const [bulkOpen, setBulkOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [catOpen, setCatOpen] = useState(false);
   const [editing, setEditing] = useState<Servicio | null>(null);
-  const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: "Neumáticos" as Categoria });
+  const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: "" });
+
+  const categorias = loadCategorias();
 
   const filtered = servicios.filter(s => {
     const matchSearch = s.nombre.toLowerCase().includes(search.toLowerCase()) || s.descripcion.toLowerCase().includes(search.toLowerCase());
     const matchCat = catFilter === "todas" || s.categoria === catFilter;
     return matchSearch && matchCat;
   });
-
-  function openNew() {
-    setEditing(null);
-    setForm({ nombre: "", precio: "", descripcion: "", categoria: "Neumáticos" });
-    setEditOpen(true);
-  }
 
   function openEdit(s: Servicio) {
     setEditing(s);
@@ -47,17 +53,14 @@ export default function PriceTable({ onSelectForQuote }: Props) {
     if (isNaN(precio) || precio <= 0) { toast({ title: "Error", description: "El precio debe ser mayor a 0", variant: "destructive" }); return; }
     if (editing) {
       updateServicio(editing.id, { nombre: form.nombre, precio, descripcion: form.descripcion, categoria: form.categoria });
-    } else {
-      addServicio({ nombre: form.nombre, precio, descripcion: form.descripcion, categoria: form.categoria, activo: true });
     }
     setEditOpen(false);
   }
 
-  const catColors: Record<Categoria, string> = {
-    "Neumáticos": "bg-accent/15 text-accent border-accent/30",
-    "Mecánica": "bg-warning/15 text-warning border-warning/30",
-    "Aceites": "bg-success/15 text-success border-success/30",
-  };
+  function getCatColor(cat: string) {
+    const idx = categorias.indexOf(cat);
+    return CAT_COLORS[idx % CAT_COLORS.length] || CAT_COLORS[0];
+  }
 
   return (
     <div className="space-y-4">
@@ -73,13 +76,13 @@ export default function PriceTable({ onSelectForQuote }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Todas</SelectItem>
-            {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => setBulkOpen(true)} className="gap-1.5">
-          <Upload className="h-4 w-4" /> Carga masiva
+        <Button variant="outline" onClick={() => setCatOpen(true)} className="gap-1.5" size="icon" title="Gestionar categorías">
+          <Tags className="h-4 w-4" />
         </Button>
-        <Button onClick={openNew} className="gap-1.5">
+        <Button onClick={() => setAddOpen(true)} className="gap-1.5">
           <Plus className="h-4 w-4" /> Agregar
         </Button>
       </div>
@@ -101,7 +104,7 @@ export default function PriceTable({ onSelectForQuote }: Props) {
             {filtered.map(s => (
               <tr key={s.id} className={`border-b last:border-0 transition-colors hover:bg-muted/30 ${!s.activo ? "opacity-50" : ""}`}>
                 <td className="p-3 font-medium">{s.nombre}</td>
-                <td className="p-3"><Badge variant="outline" className={catColors[s.categoria]}>{s.categoria}</Badge></td>
+                <td className="p-3"><Badge variant="outline" className={getCatColor(s.categoria)}>{s.categoria}</Badge></td>
                 <td className="p-3 text-right font-semibold tabular-nums">${s.precio.toLocaleString("es-UY")}</td>
                 <td className="p-3 text-muted-foreground">{s.descripcion}</td>
                 <td className="p-3 text-center">
@@ -138,7 +141,7 @@ export default function PriceTable({ onSelectForQuote }: Props) {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
-                <Badge variant="outline" className={catColors[s.categoria]}>{s.categoria}</Badge>
+                <Badge variant="outline" className={getCatColor(s.categoria)}>{s.categoria}</Badge>
                 <button onClick={() => toggleActivo(s.id)} className={`text-xs px-2 py-0.5 rounded-full ${s.activo ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
                   {s.activo ? "Activo" : "Inactivo"}
                 </button>
@@ -154,31 +157,32 @@ export default function PriceTable({ onSelectForQuote }: Props) {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">No se encontraron servicios.</p>}
       </div>
 
-      {/* Edit/Add Dialog */}
+      {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar servicio" : "Agregar servicio"}</DialogTitle>
+            <DialogTitle>Editar servicio</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input placeholder="Nombre del servicio" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
             <Input type="number" placeholder="Precio (UYU)" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} min={1} />
             <Input placeholder="Descripción breve" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
-            <Select value={form.categoria} onValueChange={(v) => setForm(f => ({ ...f, categoria: v as Categoria }))}>
+            <Select value={form.categoria} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editing ? "Guardar" : "Agregar"}</Button>
+            <Button onClick={handleSave}>Guardar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <BulkImport open={bulkOpen} onOpenChange={setBulkOpen} />
+      <AddServiceDialog open={addOpen} onOpenChange={setAddOpen} />
+      <CategoryManager open={catOpen} onOpenChange={setCatOpen} />
     </div>
   );
 }
