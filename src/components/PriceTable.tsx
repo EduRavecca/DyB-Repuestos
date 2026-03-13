@@ -76,6 +76,9 @@ export default function PriceTable({ onSelectForQuote }: Props) {
             {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => setBulkOpen(true)} className="gap-1.5">
+          <Upload className="h-4 w-4" /> Carga masiva
+        </Button>
         <Button onClick={openNew} className="gap-1.5">
           <Plus className="h-4 w-4" /> Agregar
         </Button>
