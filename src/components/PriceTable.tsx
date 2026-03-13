@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Pencil, Trash2, Power } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Power, Upload } from "lucide-react";
+import BulkImport from "@/components/BulkImport";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
