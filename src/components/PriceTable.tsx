@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Pencil, Trash2, Power } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Power, Upload } from "lucide-react";
+import BulkImport from "@/components/BulkImport";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -18,6 +19,7 @@ export default function PriceTable({ onSelectForQuote }: Props) {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<string>("todas");
   const [editOpen, setEditOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Servicio | null>(null);
   const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: "Neumáticos" as Categoria });
 
@@ -74,6 +76,9 @@ export default function PriceTable({ onSelectForQuote }: Props) {
             {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => setBulkOpen(true)} className="gap-1.5">
+          <Upload className="h-4 w-4" /> Carga masiva
+        </Button>
         <Button onClick={openNew} className="gap-1.5">
           <Plus className="h-4 w-4" /> Agregar
         </Button>
@@ -172,6 +177,8 @@ export default function PriceTable({ onSelectForQuote }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkImport open={bulkOpen} onOpenChange={setBulkOpen} />
     </div>
   );
 }
