@@ -1,14 +1,19 @@
 import { useState } from "react";
-import { Servicio, loadCategorias } from "@/lib/data";
+import { Servicio, getPrice } from "@/lib/data";
 import { useServicios } from "@/hooks/useServicios";
+import { useCategorias } from "@/hooks/useCategorias";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Pencil, Trash2, Power, Tags } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Power, Tags, ListTree } from "lucide-react";
 import AddServiceDialog from "@/components/AddServiceDialog";
 import CategoryManager from "@/components/CategoryManager";
+import PriceListManager from "@/components/PriceListManager";
+import { useListasPrecio } from "@/hooks/useListasPrecio";
+import { useAuth } from "@/lib/auth";
+import { DEFAULT_LISTA_PRECIO_ID } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -30,10 +35,14 @@ export default function PriceTable({ onSelectForQuote }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
+  const [listManagerOpen, setListManagerOpen] = useState(false);
+  const [activeListId, setActiveListId] = useState(DEFAULT_LISTA_PRECIO_ID);
   const [editing, setEditing] = useState<Servicio | null>(null);
   const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: "" });
 
-  const categorias = loadCategorias();
+  const { categorias, isLoading: loadingCats } = useCategorias();
+  const { listas } = useListasPrecio();
+  const { isManager } = useAuth();
 
   const filtered = servicios.filter(s => {
     const matchSearch = s.nombre.toLowerCase().includes(search.toLowerCase()) || s.descripcion.toLowerCase().includes(search.toLowerCase());
@@ -43,7 +52,7 @@ export default function PriceTable({ onSelectForQuote }: Props) {
 
   function openEdit(s: Servicio) {
     setEditing(s);
-    setForm({ nombre: s.nombre, precio: String(s.precio), descripcion: s.descripcion, categoria: s.categoria });
+    setForm({ nombre: s.nombre, precio: String(getPrice(s, activeListId)), descripcion: s.descripcion, categoria: s.categoria });
     setEditOpen(true);
   }
 
@@ -52,7 +61,12 @@ export default function PriceTable({ onSelectForQuote }: Props) {
     if (!form.nombre.trim()) { toast({ title: "Error", description: "El nombre es obligatorio", variant: "destructive" }); return; }
     if (isNaN(precio) || precio <= 0) { toast({ title: "Error", description: "El precio debe ser mayor a 0", variant: "destructive" }); return; }
     if (editing) {
-      updateServicio(editing.id, { nombre: form.nombre, precio, descripcion: form.descripcion, categoria: form.categoria });
+      updateServicio(editing.id, { 
+        nombre: form.nombre, 
+        precios: { ...editing.precios, [activeListId]: precio }, 
+        descripcion: form.descripcion, 
+        categoria: form.categoria 
+      });
     }
     setEditOpen(false);
   }
@@ -79,12 +93,27 @@ export default function PriceTable({ onSelectForQuote }: Props) {
             {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => setCatOpen(true)} className="gap-1.5" size="icon" title="Gestionar categorías">
-          <Tags className="h-4 w-4" />
-        </Button>
-        <Button onClick={() => setAddOpen(true)} className="gap-1.5">
-          <Plus className="h-4 w-4" /> Agregar
-        </Button>
+        <Select value={activeListId} onValueChange={setActiveListId}>
+          <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectValue placeholder="Lista de Precio" />
+          </SelectTrigger>
+          <SelectContent>
+            {listas.map(l => <SelectItem key={l.id} value={l.id}>{l.nombre}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {isManager && (
+          <>
+            <Button variant="outline" onClick={() => setCatOpen(true)} className="gap-1.5" size="icon" title="Gestionar categorías">
+              <Tags className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" onClick={() => setListManagerOpen(true)} className="gap-1.5" size="icon" title="Gestionar listas de precio">
+              <ListTree className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => setAddOpen(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Agregar
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Table — desktop */}
@@ -105,10 +134,12 @@ export default function PriceTable({ onSelectForQuote }: Props) {
               <tr key={s.id} className={`border-b last:border-0 transition-colors hover:bg-muted/30 ${!s.activo ? "opacity-50" : ""}`}>
                 <td className="p-3 font-medium">{s.nombre}</td>
                 <td className="p-3"><Badge variant="outline" className={getCatColor(s.categoria)}>{s.categoria}</Badge></td>
-                <td className="p-3 text-right font-semibold tabular-nums">${s.precio.toLocaleString("es-UY")}</td>
+                <td className="p-3 text-right font-semibold tabular-nums">
+                  {getPrice(s, activeListId) > 0 ? `$${getPrice(s, activeListId).toLocaleString("es-UY")}` : <span className="text-muted-foreground text-xs italic">Sin precio</span>}
+                </td>
                 <td className="p-3 text-muted-foreground">{s.descripcion}</td>
                 <td className="p-3 text-center">
-                  <button onClick={() => toggleActivo(s.id)} className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${s.activo ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                  <button onClick={() => isManager ? toggleActivo(s.id) : null} disabled={!isManager} className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${s.activo ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"} ${!isManager ? "cursor-default opacity-80" : ""}`}>
                     <Power className="h-3 w-3" />{s.activo ? "Activo" : "Inactivo"}
                   </button>
                 </td>
@@ -117,8 +148,12 @@ export default function PriceTable({ onSelectForQuote }: Props) {
                     {onSelectForQuote && s.activo && (
                       <Button variant="ghost" size="sm" onClick={() => onSelectForQuote(s)} className="text-accent hover:text-accent">+ Cotizar</Button>
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteServicio(s.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    {isManager && (
+                      <>
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteServicio(s.id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -137,19 +172,25 @@ export default function PriceTable({ onSelectForQuote }: Props) {
                 <p className="font-semibold">{s.nombre}</p>
                 <p className="text-xs text-muted-foreground">{s.descripcion}</p>
               </div>
-              <p className="text-lg font-bold tabular-nums">${s.precio.toLocaleString("es-UY")}</p>
+              <p className="text-lg font-bold tabular-nums">
+                {getPrice(s, activeListId) > 0 ? `$${getPrice(s, activeListId).toLocaleString("es-UY")}` : <span className="text-muted-foreground text-xs italic font-normal">S/P</span>}
+              </p>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
                 <Badge variant="outline" className={getCatColor(s.categoria)}>{s.categoria}</Badge>
-                <button onClick={() => toggleActivo(s.id)} className={`text-xs px-2 py-0.5 rounded-full ${s.activo ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                <button onClick={() => isManager ? toggleActivo(s.id) : null} disabled={!isManager} className={`text-xs px-2 py-0.5 rounded-full ${s.activo ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"} ${!isManager ? "cursor-default opacity-80" : ""}`}>
                   {s.activo ? "Activo" : "Inactivo"}
                 </button>
               </div>
               <div className="flex gap-1">
                 {onSelectForQuote && s.activo && <Button variant="ghost" size="sm" onClick={() => onSelectForQuote(s)}>+ Cotizar</Button>}
-                <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => deleteServicio(s.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                {isManager && (
+                  <>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => deleteServicio(s.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -181,8 +222,13 @@ export default function PriceTable({ onSelectForQuote }: Props) {
         </DialogContent>
       </Dialog>
 
-      <AddServiceDialog open={addOpen} onOpenChange={setAddOpen} />
-      <CategoryManager open={catOpen} onOpenChange={setCatOpen} />
+      {isManager && (
+        <>
+          <AddServiceDialog open={addOpen} onOpenChange={setAddOpen} />
+          <CategoryManager open={catOpen} onOpenChange={setCatOpen} />
+          <PriceListManager open={listManagerOpen} onOpenChange={setListManagerOpen} />
+        </>
+      )}
     </div>
   );
 }

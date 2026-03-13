@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
-import { loadCategorias } from "@/lib/data";
 import { useServicios } from "@/hooks/useServicios";
+import { useCategorias } from "@/hooks/useCategorias";
+import { DEFAULT_LISTA_PRECIO_ID } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,8 +18,8 @@ interface BulkRow {
   categoria: string;
 }
 
-const emptyRow = (): BulkRow => ({
-  nombre: "", precio: "", descripcion: "", categoria: loadCategorias()[0] || "General",
+const emptyRow = (initialCategoria: string = "General"): BulkRow => ({
+  nombre: "", precio: "", descripcion: "", categoria: initialCategoria,
 });
 
 interface Props {
@@ -29,13 +30,14 @@ interface Props {
 export default function AddServiceDialog({ open, onOpenChange }: Props) {
   const { addServicio } = useServicios();
   const fileRef = useRef<HTMLInputElement>(null);
-  const categorias = loadCategorias();
+  const { categorias, isLoading } = useCategorias();
+  const defaultCat = categorias[0] || "General";
 
   // Single add
-  const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: categorias[0] || "General" });
+  const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: defaultCat });
 
   // Bulk manual
-  const [rows, setRows] = useState<BulkRow[]>([emptyRow(), emptyRow(), emptyRow()]);
+  const [rows, setRows] = useState<BulkRow[]>([emptyRow(defaultCat), emptyRow(defaultCat), emptyRow(defaultCat)]);
 
   // Excel import
   const [importedRows, setImportedRows] = useState<BulkRow[]>([]);
@@ -45,8 +47,8 @@ export default function AddServiceDialog({ open, onOpenChange }: Props) {
     const precio = Number(form.precio);
     if (!form.nombre.trim()) { toast({ title: "El nombre es obligatorio", variant: "destructive" }); return; }
     if (isNaN(precio) || precio <= 0) { toast({ title: "El precio debe ser mayor a 0", variant: "destructive" }); return; }
-    addServicio({ nombre: form.nombre, precio, descripcion: form.descripcion, categoria: form.categoria, activo: true });
-    setForm({ nombre: "", precio: "", descripcion: "", categoria: categorias[0] || "General" });
+    addServicio({ nombre: form.nombre, precios: { [DEFAULT_LISTA_PRECIO_ID]: precio }, descripcion: form.descripcion, categoria: form.categoria, activo: true });
+    setForm({ nombre: "", precio: "", descripcion: "", categoria: defaultCat });
     onOpenChange(false);
   }
 
@@ -64,7 +66,7 @@ export default function AddServiceDialog({ open, onOpenChange }: Props) {
       valid.push(r);
     });
     setErrors(errs);
-    valid.forEach(r => addServicio({ nombre: r.nombre, precio: Number(r.precio), descripcion: r.descripcion, categoria: r.categoria, activo: true }));
+    valid.forEach(r => addServicio({ nombre: r.nombre, precios: { [DEFAULT_LISTA_PRECIO_ID]: Number(r.precio) }, descripcion: r.descripcion, categoria: r.categoria, activo: true }));
     return valid.length;
   }
 
@@ -74,7 +76,7 @@ export default function AddServiceDialog({ open, onOpenChange }: Props) {
     const count = validateAndSave(nonEmpty);
     if (count > 0) {
       toast({ title: `${count} servicio(s) agregado(s) ✓` });
-      setRows([emptyRow(), emptyRow(), emptyRow()]);
+      setRows([emptyRow(defaultCat), emptyRow(defaultCat), emptyRow(defaultCat)]);
       if (count === nonEmpty.length) onOpenChange(false);
     }
   }
@@ -91,9 +93,8 @@ export default function AddServiceDialog({ open, onOpenChange }: Props) {
 
   function parseCategoriaFromString(val: string): string {
     const lower = val?.toLowerCase().trim() || "";
-    const cats = loadCategorias();
-    const match = cats.find(c => lower.includes(c.toLowerCase().slice(0, 4)));
-    return match || cats[0] || "General";
+    const match = categorias.find(c => lower.includes(c.toLowerCase().slice(0, 4)));
+    return match || defaultCat;
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -191,7 +192,7 @@ export default function AddServiceDialog({ open, onOpenChange }: Props) {
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" onClick={() => setRows(prev => [...prev, emptyRow()])} className="gap-1">
+            <Button variant="outline" size="sm" onClick={() => setRows(prev => [...prev, emptyRow(defaultCat)])} className="gap-1">
               <Plus className="h-3.5 w-3.5" /> Agregar fila
             </Button>
             {errors.length > 0 && (

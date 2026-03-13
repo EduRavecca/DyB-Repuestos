@@ -1,10 +1,14 @@
 import logoCp from "@/assets/logo-cp.png";
-import { MapPin, Phone, MessageCircle } from "lucide-react";
-
-const WHATSAPP = "59823574747";
-const MAPS_URL = "https://maps.google.com/?q=Bvr.+José+Batlle+y+Ordóñez+5930,+Montevideo,+Uruguay";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+import { LogOut, Users } from "lucide-react";
+import { useState } from "react";
+import UserManagement from "@/components/UserManagement";
 
 export default function Header() {
+  const { signOut, perfil, isManager } = useAuth();
+  const [usersOpen, setUsersOpen] = useState(false);
+
   return (
     <header className="bg-primary text-primary-foreground">
       <div className="container flex items-center justify-between py-3 gap-4">
@@ -12,24 +16,25 @@ export default function Header() {
           <img src={logoCp} alt="D&B Repuestos" className="h-10 w-10 rounded-md bg-primary-foreground/10 object-contain" />
           <div>
             <h1 className="text-lg font-bold leading-tight tracking-tight">D&B Repuestos</h1>
-            <p className="text-xs text-primary-foreground/70 hidden sm:block">Sayago, Montevideo</p>
+            {perfil && (
+              <p className="text-xs text-primary-foreground/70 capitalize hidden md:block">
+                Rol: {perfil.role}
+              </p>
+            )}
           </div>
         </div>
-        <nav className="flex items-center gap-2 text-sm">
-          <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-md px-2 py-1.5 text-primary-foreground/80 hover:bg-primary-foreground/10 transition-colors">
-            <MapPin className="h-4 w-4" />
-            <span className="hidden sm:inline">Ubicación</span>
-          </a>
-          <a href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-md px-2 py-1.5 text-primary-foreground/80 hover:bg-primary-foreground/10 transition-colors">
-            <MessageCircle className="h-4 w-4" />
-            <span className="hidden sm:inline">WhatsApp</span>
-          </a>
-          <a href="tel:+59823574747" className="flex items-center gap-1 rounded-md px-2 py-1.5 text-primary-foreground/80 hover:bg-primary-foreground/10 transition-colors">
-            <Phone className="h-4 w-4" />
-            <span className="hidden sm:inline">23574747</span>
-          </a>
-        </nav>
+        <div className="flex items-center gap-2">
+          {isManager && (
+            <Button variant="ghost" size="sm" onClick={() => setUsersOpen(true)} className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10 h-8 gap-2">
+              <span className="hidden sm:inline">Equipo</span> <Users className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={signOut} className="text-primary-foreground hover:text-primary-foreground hover:bg-primary-foreground/10 h-8 gap-2">
+            <span className="hidden sm:inline">Cerrar Sesión</span> <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+      <UserManagement open={usersOpen} onOpenChange={setUsersOpen} />
     </header>
   );
 }

@@ -1,37 +1,72 @@
-import { useState, useCallback } from "react";
-import { Servicio, loadServicios, saveServicios } from "@/lib/data";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getServicios, addServicioAPI, updateServicioAPI, deleteServicioAPI } from "@/lib/api";
+import { Servicio } from "@/lib/data";
 import { toast } from "@/hooks/use-toast";
 
 export function useServicios() {
-  const [servicios, setServicios] = useState<Servicio[]>(loadServicios);
+  const queryClient = useQueryClient();
 
-  const persist = useCallback((next: Servicio[]) => {
-    setServicios(next);
-    saveServicios(next);
-  }, []);
+  const { data: servicios = [], isLoading } = useQuery({
+    queryKey: ["servicios"],
+    queryFn: getServicios,
+  });
 
-  const addServicio = useCallback((s: Omit<Servicio, "id">) => {
-    const newS = { ...s, id: crypto.randomUUID() };
-    persist([...loadServicios(), newS]);
-    toast({ title: "Servicio agregado", description: s.nombre });
-    return newS;
-  }, [persist]);
+  const addMutation = useMutation({
+    mutationFn: (s: Omit<Servicio, "id">) => addServicioAPI(s),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["servicios"] });
+      toast({ title: "Servicio agregado", description: variables.nombre });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Error al agregar servicio", variant: "destructive" });
+    }
+  });
 
-  const updateServicio = useCallback((id: string, updates: Partial<Servicio>) => {
-    const next = loadServicios().map(s => s.id === id ? { ...s, ...updates } : s);
-    persist(next);
-    toast({ title: "Servicio actualizado" });
-  }, [persist]);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string, updates: Partial<Servicio> }) => updateServicioAPI(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servicios"] });
+      toast({ title: "Servicio actualizado" });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Error al actualizar servicio", variant: "destructive" });
+    }
+  });
 
-  const deleteServicio = useCallback((id: string) => {
-    persist(loadServicios().filter(s => s.id !== id));
-    toast({ title: "Servicio eliminado" });
-  }, [persist]);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteServicioAPI(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servicios"] });
+      toast({ title: "Servicio eliminado" });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Error al eliminar servicio", variant: "destructive" });
+    }
+  });
 
-  const toggleActivo = useCallback((id: string) => {
-    const next = loadServicios().map(s => s.id === id ? { ...s, activo: !s.activo } : s);
-    persist(next);
-  }, [persist]);
+  // Wrappers to keep backward compatibility with the components
+  const addServicio = (s: Omit<Servicio, "id">) => {
+    addMutation.mutate(s);
+    return { ...s, id: "temp-id" } as Servicio;
+  };
 
-  return { servicios, addServicio, updateServicio, deleteServicio, toggleActivo };
+  const updateServicio = (id: string, updates: Partial<Servicio>) => {
+    updateMutation.mutate({ id, updates });
+  };
+
+  const deleteServicio = (id: string) => {
+    deleteMutation.mutate(id);
+  };
+
+  const toggleActivo = (id: string) => {
+    const s = servicios.find(x => x.id === id);
+    if (s) {
+      updateMutation.mutate({ id, updates: { activo: !s.activo } });
+    }
+  };
+
+  return { servicios, isLoading, addServicio, updateServicio, deleteServicio, toggleActivo };
 }

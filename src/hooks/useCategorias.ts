@@ -1,41 +1,75 @@
-import { useState, useCallback } from "react";
-import { loadCategorias, saveCategorias } from "@/lib/data";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getCategorias, addCategoriaAPI, updateCategoriaAPI, deleteCategoriaAPI } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 export function useCategorias() {
-  const [categorias, setCategorias] = useState<string[]>(loadCategorias);
+  const queryClient = useQueryClient();
 
-  const persist = useCallback((next: string[]) => {
-    setCategorias(next);
-    saveCategorias(next);
-  }, []);
+  const { data: categorias = [], isLoading } = useQuery({
+    queryKey: ["categorias"],
+    queryFn: getCategorias,
+  });
 
-  const addCategoria = useCallback((nombre: string) => {
+  const addMutation = useMutation({
+    mutationFn: (nombre: string) => addCategoriaAPI(nombre),
+    onSuccess: (_, nombre) => {
+      queryClient.invalidateQueries({ queryKey: ["categorias"] });
+      toast({ title: "Categoría agregada", description: nombre });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Error al agregar categoría", variant: "destructive" });
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ oldName, newName }: { oldName: string, newName: string }) => updateCategoriaAPI(oldName, newName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categorias"] });
+      queryClient.invalidateQueries({ queryKey: ["servicios"] });
+      toast({ title: "Categoría actualizada" });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Error al actualizar categoría", variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (nombre: string) => deleteCategoriaAPI(nombre),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categorias"] });
+      queryClient.invalidateQueries({ queryKey: ["servicios"] });
+      toast({ title: "Categoría eliminada" });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Error al eliminar categoría", variant: "destructive" });
+    }
+  });
+
+  // Compatible API with previous sync hook
+  const addCategoria = (nombre: string) => {
     const trimmed = nombre.trim();
     if (!trimmed) return false;
-    const current = loadCategorias();
-    if (current.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+    if (categorias.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
       toast({ title: "Esa categoría ya existe", variant: "destructive" });
       return false;
     }
-    persist([...current, trimmed]);
-    toast({ title: "Categoría agregada", description: trimmed });
+    addMutation.mutate(trimmed);
     return true;
-  }, [persist]);
+  };
 
-  const updateCategoria = useCallback((oldName: string, newName: string) => {
+  const updateCategoria = (oldName: string, newName: string) => {
     const trimmed = newName.trim();
     if (!trimmed) return false;
-    const current = loadCategorias();
-    persist(current.map(c => c === oldName ? trimmed : c));
-    toast({ title: "Categoría actualizada" });
+    updateMutation.mutate({ oldName, newName: trimmed });
     return true;
-  }, [persist]);
+  };
 
-  const deleteCategoria = useCallback((nombre: string) => {
-    persist(loadCategorias().filter(c => c !== nombre));
-    toast({ title: "Categoría eliminada" });
-  }, [persist]);
+  const deleteCategoria = (nombre: string) => {
+    deleteMutation.mutate(nombre);
+  };
 
-  return { categorias, addCategoria, updateCategoria, deleteCategoria };
+  return { categorias, isLoading, addCategoria, updateCategoria, deleteCategoria };
 }
