@@ -177,6 +177,8 @@ export default function PriceTable({ onSelectForQuote }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkImport open={bulkOpen} onOpenChange={setBulkOpen} />
     </div>
   );
 }
