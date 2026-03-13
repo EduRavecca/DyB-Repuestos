@@ -1,17 +1,28 @@
-export type Categoria = "Neumáticos" | "Mecánica" | "Aceites";
-
 export interface Servicio {
   id: string;
   nombre: string;
   precio: number;
   descripcion: string;
-  categoria: Categoria;
+  categoria: string;
   activo: boolean;
 }
 
-export const CATEGORIAS: Categoria[] = ["Neumáticos", "Mecánica", "Aceites"];
-
 export const IVA_RATE = 0.22;
+
+const CATEGORIAS_DEFAULT = ["Neumáticos", "Mecánica", "Aceites"];
+
+export function loadCategorias(): string[] {
+  const saved = localStorage.getItem("cp-categorias");
+  if (saved) {
+    try { return JSON.parse(saved); } catch { /* fall through */ }
+  }
+  localStorage.setItem("cp-categorias", JSON.stringify(CATEGORIAS_DEFAULT));
+  return CATEGORIAS_DEFAULT;
+}
+
+export function saveCategorias(cats: string[]) {
+  localStorage.setItem("cp-categorias", JSON.stringify(cats));
+}
 
 export const serviciosIniciales: Servicio[] = [
   { id: "1", nombre: "Alineación", precio: 1500, descripcion: "4 ruedas, incluye chequeo", categoria: "Mecánica", activo: true },

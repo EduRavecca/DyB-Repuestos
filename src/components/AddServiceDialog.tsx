@@ -1,12 +1,12 @@
 import { useState, useRef } from "react";
-import { Servicio, Categoria, CATEGORIAS } from "@/lib/data";
+import { loadCategorias } from "@/lib/data";
 import { useServicios } from "@/hooks/useServicios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Plus, Trash2, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { Plus, Trash2, FileSpreadsheet, AlertCircle, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 
@@ -14,33 +14,44 @@ interface BulkRow {
   nombre: string;
   precio: string;
   descripcion: string;
-  categoria: Categoria;
+  categoria: string;
 }
 
-const emptyRow = (): BulkRow => ({ nombre: "", precio: "", descripcion: "", categoria: "Neumáticos" });
+const emptyRow = (): BulkRow => ({
+  nombre: "", precio: "", descripcion: "", categoria: loadCategorias()[0] || "General",
+});
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function BulkImport({ open, onOpenChange }: Props) {
+export default function AddServiceDialog({ open, onOpenChange }: Props) {
   const { addServicio } = useServicios();
   const fileRef = useRef<HTMLInputElement>(null);
+  const categorias = loadCategorias();
+
+  // Single add
+  const [form, setForm] = useState({ nombre: "", precio: "", descripcion: "", categoria: categorias[0] || "General" });
+
+  // Bulk manual
   const [rows, setRows] = useState<BulkRow[]>([emptyRow(), emptyRow(), emptyRow()]);
+
+  // Excel import
   const [importedRows, setImportedRows] = useState<BulkRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
+  function handleSaveSingle() {
+    const precio = Number(form.precio);
+    if (!form.nombre.trim()) { toast({ title: "El nombre es obligatorio", variant: "destructive" }); return; }
+    if (isNaN(precio) || precio <= 0) { toast({ title: "El precio debe ser mayor a 0", variant: "destructive" }); return; }
+    addServicio({ nombre: form.nombre, precio, descripcion: form.descripcion, categoria: form.categoria, activo: true });
+    setForm({ nombre: "", precio: "", descripcion: "", categoria: categorias[0] || "General" });
+    onOpenChange(false);
+  }
+
   function updateRow(index: number, field: keyof BulkRow, value: string) {
     setRows(prev => prev.map((r, i) => i === index ? { ...r, [field]: value } : r));
-  }
-
-  function addRow() {
-    setRows(prev => [...prev, emptyRow()]);
-  }
-
-  function removeRow(index: number) {
-    setRows(prev => prev.filter((_, i) => i !== index));
   }
 
   function validateAndSave(data: BulkRow[]): number {
@@ -50,7 +61,6 @@ export default function BulkImport({ open, onOpenChange }: Props) {
       if (!r.nombre.trim()) { errs.push(`Fila ${i + 1}: nombre vacío`); return; }
       const precio = Number(r.precio);
       if (isNaN(precio) || precio <= 0) { errs.push(`Fila ${i + 1}: precio inválido`); return; }
-      if (!CATEGORIAS.includes(r.categoria)) { errs.push(`Fila ${i + 1}: categoría inválida`); return; }
       valid.push(r);
     });
     setErrors(errs);
@@ -73,18 +83,17 @@ export default function BulkImport({ open, onOpenChange }: Props) {
     if (importedRows.length === 0) return;
     const count = validateAndSave(importedRows);
     if (count > 0) {
-      toast({ title: `${count} servicio(s) importado(s) desde archivo ✓` });
+      toast({ title: `${count} servicio(s) importado(s) ✓` });
       setImportedRows([]);
       if (count === importedRows.length) onOpenChange(false);
     }
   }
 
-  function parseCategoriaFromString(val: string): Categoria {
+  function parseCategoriaFromString(val: string): string {
     const lower = val?.toLowerCase().trim() || "";
-    if (lower.includes("neum")) return "Neumáticos";
-    if (lower.includes("mec") || lower.includes("aline") || lower.includes("balanc")) return "Mecánica";
-    if (lower.includes("aceit") || lower.includes("filtro") || lower.includes("lubric")) return "Aceites";
-    return "Neumáticos";
+    const cats = loadCategorias();
+    const match = cats.find(c => lower.includes(c.toLowerCase().slice(0, 4)));
+    return match || cats[0] || "General";
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -110,7 +119,7 @@ export default function BulkImport({ open, onOpenChange }: Props) {
         setErrors([]);
         toast({ title: `${parsed.length} fila(s) leídas del archivo` });
       } catch {
-        toast({ title: "Error al leer el archivo", description: "Asegurate de que sea un Excel o CSV válido.", variant: "destructive" });
+        toast({ title: "Error al leer el archivo", variant: "destructive" });
       }
     };
     reader.readAsArrayBuffer(file);
@@ -133,19 +142,37 @@ export default function BulkImport({ open, onOpenChange }: Props) {
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" /> Carga masiva de servicios
+            <Plus className="h-5 w-5" /> Agregar servicios
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="manual">
+        <Tabs defaultValue="individual">
           <TabsList className="w-full">
-            <TabsTrigger value="manual" className="flex-1 gap-1.5"><Plus className="h-4 w-4" /> Manual</TabsTrigger>
-            <TabsTrigger value="excel" className="flex-1 gap-1.5"><FileSpreadsheet className="h-4 w-4" /> Importar Excel/CSV</TabsTrigger>
+            <TabsTrigger value="individual" className="flex-1 gap-1.5"><Plus className="h-4 w-4" /> Individual</TabsTrigger>
+            <TabsTrigger value="manual" className="flex-1 gap-1.5"><Plus className="h-4 w-4" /> Carga masiva</TabsTrigger>
+            <TabsTrigger value="excel" className="flex-1 gap-1.5"><FileSpreadsheet className="h-4 w-4" /> Importar Excel</TabsTrigger>
           </TabsList>
 
-          {/* Manual bulk entry */}
+          {/* Individual */}
+          <TabsContent value="individual" className="space-y-3 mt-4">
+            <Input placeholder="Nombre del servicio" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+            <Input type="number" placeholder="Precio (UYU)" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} min={1} />
+            <Input placeholder="Descripción breve" value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+            <Select value={form.categoria} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button onClick={handleSaveSingle}>Agregar</Button>
+            </DialogFooter>
+          </TabsContent>
+
+          {/* Manual bulk */}
           <TabsContent value="manual" className="space-y-3 mt-4">
-            <p className="text-sm text-muted-foreground">Completá las filas y hacé clic en "Guardar todo". Podés agregar las filas que necesites.</p>
+            <p className="text-sm text-muted-foreground">Completá las filas y hacé clic en "Guardar todo".</p>
             <div className="space-y-2">
               {rows.map((row, i) => (
                 <div key={i} className="grid grid-cols-[1fr_80px_1fr_120px_32px] gap-2 items-center">
@@ -155,29 +182,31 @@ export default function BulkImport({ open, onOpenChange }: Props) {
                   <Select value={row.categoria} onValueChange={v => updateRow(i, "categoria", v)}>
                     <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {categorias.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button variant="ghost" size="icon" onClick={() => removeRow(i)} className="text-destructive h-8 w-8"><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setRows(prev => prev.filter((_, idx) => idx !== i))} className="text-destructive h-8 w-8">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" onClick={addRow} className="gap-1"><Plus className="h-3.5 w-3.5" /> Agregar fila</Button>
-
+            <Button variant="outline" size="sm" onClick={() => setRows(prev => [...prev, emptyRow()])} className="gap-1">
+              <Plus className="h-3.5 w-3.5" /> Agregar fila
+            </Button>
             {errors.length > 0 && (
               <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive space-y-1">
                 <div className="flex items-center gap-1 font-medium"><AlertCircle className="h-4 w-4" /> Errores:</div>
                 {errors.map((e, i) => <p key={i}>• {e}</p>)}
               </div>
             )}
-
             <DialogFooter>
               <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button onClick={handleSaveManual}>Guardar todo ({rows.filter(r => r.nombre.trim()).length})</Button>
             </DialogFooter>
           </TabsContent>
 
-          {/* Excel/CSV import */}
+          {/* Excel import */}
           <TabsContent value="excel" className="space-y-4 mt-4">
             <p className="text-sm text-muted-foreground">
               Subí un archivo Excel (.xlsx) o CSV con columnas: <strong>Servicio, Precio, Descripción, Categoría</strong>.
@@ -216,14 +245,12 @@ export default function BulkImport({ open, onOpenChange }: Props) {
                     </tbody>
                   </table>
                 </div>
-
                 {errors.length > 0 && (
                   <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive space-y-1">
                     <div className="flex items-center gap-1 font-medium"><AlertCircle className="h-4 w-4" /> Errores:</div>
                     {errors.map((e, i) => <p key={i}>• {e}</p>)}
                   </div>
                 )}
-
                 <DialogFooter>
                   <Button variant="secondary" onClick={() => { setImportedRows([]); setErrors([]); }}>Cancelar</Button>
                   <Button onClick={handleSaveImported}>Importar {importedRows.length} servicio(s)</Button>
