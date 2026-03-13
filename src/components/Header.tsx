@@ -9,9 +9,9 @@ export default function Header() {
     <header className="bg-primary text-primary-foreground">
       <div className="container flex items-center justify-between py-3 gap-4">
         <div className="flex items-center gap-3">
-          <img src={logoCp} alt="CP Neumáticos" className="h-10 w-10 rounded-md bg-primary-foreground/10 object-contain" />
+          <img src={logoCp} alt="D&B Repuestos" className="h-10 w-10 rounded-md bg-primary-foreground/10 object-contain" />
           <div>
-            <h1 className="text-lg font-bold leading-tight tracking-tight">CP Neumáticos</h1>
+            <h1 className="text-lg font-bold leading-tight tracking-tight">D&B Repuestos</h1>
             <p className="text-xs text-primary-foreground/70 hidden sm:block">Sayago, Montevideo</p>
           </div>
         </div>

@@ -56,7 +56,7 @@ export default function Index() {
         </div>
       </main>
       <footer className="border-t py-4 text-center text-xs text-muted-foreground">
-        CP Neumáticos — Bvr. José Batlle y Ordóñez 5930/38, Sayago, Montevideo · Tel: 23574747
+        D&B Repuestos — Bvr. José Batlle y Ordóñez 5930/38, Sayago, Montevideo · Tel: 23574747
       </footer>
     </div>
   );

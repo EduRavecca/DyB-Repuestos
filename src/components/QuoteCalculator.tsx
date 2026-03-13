@@ -24,7 +24,7 @@ export default function QuoteCalculator({ items, onRemove, onClear }: Props) {
 
   function buildText() {
     const lines = [
-      `*CP Neumáticos — Presupuesto*`,
+      `*D&B Repuestos — Presupuesto*`,
       `📍 Bvr. Batlle y Ordóñez 5930, Sayago`,
       `📞 23574747`,
       "",
