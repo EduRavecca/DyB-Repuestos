@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { Servicio, getPrice } from "./data";
+import { Item, getPrice } from "./data";
 
 export const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 export const DEFAULT_LISTA_PRECIO_ID = '11111111-1111-1111-1111-111111111111';
@@ -107,8 +107,8 @@ export async function deleteCategoriaAPI(nombre: string): Promise<void> {
   if (error) throw error;
 }
 
-// -------- SERVICIOS (PRODUCTOS + PRECIOS) --------
-export async function getServicios(): Promise<Servicio[]> {
+// -------- ITEMS (PRODUCTOS + PRECIOS) --------
+export async function getItems(): Promise<Item[]> {
   const { data, error } = await supabase
     .from("productos")
     .select(`
@@ -142,13 +142,13 @@ export async function getServicios(): Promise<Servicio[]> {
   });
 }
 
-export async function addServicioAPI(s: Omit<Servicio, "id">): Promise<void> {
+export async function addItemAPI(item: Omit<Item, "id">): Promise<void> {
   // 1. Obtener ID de la categoría
   let categoria_id = null;
-  if (s.categoria) {
-    let { data: cat } = await supabase.from("categorias").select("id").eq("nombre", s.categoria).eq("tenant_id", DEFAULT_TENANT_ID).single();
+  if (item.categoria) {
+    let { data: cat } = await supabase.from("categorias").select("id").eq("nombre", item.categoria).eq("tenant_id", DEFAULT_TENANT_ID).single();
     if (!cat) { // Si no existe, crearla
-        cat = await addCategoriaAPI(s.categoria);
+        cat = await addCategoriaAPI(item.categoria);
     }
     categoria_id = cat.id;
   }
@@ -159,9 +159,9 @@ export async function addServicioAPI(s: Omit<Servicio, "id">): Promise<void> {
     .insert([{
       tenant_id: DEFAULT_TENANT_ID,
       categoria_id,
-      nombre: s.nombre,
-      descripcion: s.descripcion,
-      activo: s.activo
+      nombre: item.nombre,
+      descripcion: item.descripcion,
+      activo: item.activo
     }])
     .select()
     .single();
@@ -169,8 +169,8 @@ export async function addServicioAPI(s: Omit<Servicio, "id">): Promise<void> {
   if (prodErr) throw prodErr;
 
   // 3. Insertar precios
-  if (s.precios && Object.keys(s.precios).length > 0) {
-    const preciosToInsert = Object.entries(s.precios).map(([lista_precio_id, precio]) => ({
+  if (item.precios && Object.keys(item.precios).length > 0) {
+    const preciosToInsert = Object.entries(item.precios).map(([lista_precio_id, precio]) => ({
       producto_id: prod.id,
       lista_precio_id,
       precio
@@ -184,7 +184,7 @@ export async function addServicioAPI(s: Omit<Servicio, "id">): Promise<void> {
   }
 }
 
-export async function updateServicioAPI(id: string, updates: Partial<Servicio>): Promise<void> {
+export async function updateItemAPI(id: string, updates: Partial<Item>): Promise<void> {
   // 1. Si cambiaron datos del producto o categoría
   if (updates.nombre || updates.descripcion || updates.categoria || typeof updates.activo !== 'undefined') {
     let categoria_id = undefined;
@@ -210,27 +210,31 @@ export async function updateServicioAPI(id: string, updates: Partial<Servicio>):
   // 2. Si cambiaron los precios
   if (updates.precios) {
     for (const [lista_precio_id, precioValue] of Object.entries(updates.precios)) {
-      const { error: priceCheck } = await supabase
+      const { data: existingPrice } = await supabase
         .from("precios_productos")
         .select("producto_id")
         .eq("producto_id", id)
         .eq("lista_precio_id", lista_precio_id)
-        .single();
+        .maybeSingle();
       
-      if (priceCheck) { // No existe, crear
-        await supabase.from("precios_productos")
+      if (existingPrice) { // Si existe, actualizar
+        const { error: updateErr } = await supabase
+          .from("precios_productos")
           .update({ precio: precioValue })
           .eq("producto_id", id)
           .eq("lista_precio_id", lista_precio_id);
-      } else {
-        await supabase.from("precios_productos")
+        if (updateErr) console.error("Error updating price:", updateErr);
+      } else { // Si no existe, insertar
+        const { error: insertErr } = await supabase
+          .from("precios_productos")
           .insert([{ producto_id: id, lista_precio_id, precio: precioValue }]);
+        if (insertErr) console.error("Error inserting price:", insertErr);
       }
     }
   }
 }
 
-export async function deleteServicioAPI(id: string): Promise<void> {
+export async function deleteItemAPI(id: string): Promise<void> {
   const { error } = await supabase.from("productos").delete().eq("id", id);
   if (error) throw error;
 }

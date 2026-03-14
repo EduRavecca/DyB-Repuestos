@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Servicio } from "@/lib/data";
+import { Item, QuoteItem } from "@/lib/data";
 import Header from "@/components/Header";
 import PriceTable from "@/components/PriceTable";
 import QuoteCalculator from "@/components/QuoteCalculator";
@@ -7,17 +7,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList, DollarSign } from "lucide-react";
 
 export default function Index() {
-  const [quoteItems, setQuoteItems] = useState<Servicio[]>([]);
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
 
-  const addToQuote = useCallback((s: Servicio) => {
+  const addToQuote = useCallback((item: Item) => {
     setQuoteItems(prev => {
-      if (prev.find(p => p.id === s.id)) return prev;
-      return [...prev, s];
+      const existing = prev.find(p => p.id === item.id);
+      if (existing) {
+        return prev.map(p => p.id === item.id ? { ...p, cantidad: p.cantidad + 1 } : p);
+      }
+      return [...prev, { ...item, cantidad: 1 }];
     });
   }, []);
 
   const removeFromQuote = useCallback((id: string) => {
-    setQuoteItems(prev => prev.filter(s => s.id !== id));
+    setQuoteItems(prev => prev.filter(item => item.id !== id));
+  }, []);
+
+  const updateQuantity = useCallback((id: string, delta: number) => {
+    setQuoteItems(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const newQty = Math.max(1, item.cantidad + delta);
+      return { ...item, cantidad: newQty };
+    }));
+  }, []);
+
+  const setQuantity = useCallback((id: string, qty: number) => {
+    setQuoteItems(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      return { ...item, cantidad: Math.max(1, qty) };
+    }));
   }, []);
 
   return (
@@ -38,7 +56,13 @@ export default function Index() {
               <PriceTable onSelectForQuote={addToQuote} />
             </TabsContent>
             <TabsContent value="presupuesto">
-              <QuoteCalculator items={quoteItems} onRemove={removeFromQuote} onClear={() => setQuoteItems([])} />
+              <QuoteCalculator 
+                items={quoteItems} 
+                onRemove={removeFromQuote} 
+                onUpdateQuantity={updateQuantity} 
+                onSetQuantity={setQuantity}
+                onClear={() => setQuoteItems([])} 
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -51,7 +75,13 @@ export default function Index() {
           </div>
           <div className="sticky top-6 self-start">
             <h2 className="text-2xl font-bold mb-4">Presupuesto</h2>
-            <QuoteCalculator items={quoteItems} onRemove={removeFromQuote} onClear={() => setQuoteItems([])} />
+            <QuoteCalculator 
+              items={quoteItems} 
+              onRemove={removeFromQuote} 
+              onUpdateQuantity={updateQuantity} 
+              onSetQuantity={setQuantity}
+              onClear={() => setQuoteItems([])} 
+            />
           </div>
         </div>
       </main>

@@ -1,4 +1,4 @@
-import logoCp from "@/assets/logo-cp.png";
+import logoCp from "@/assets/dyb.png";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { LogOut, Users } from "lucide-react";

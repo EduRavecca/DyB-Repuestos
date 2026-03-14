@@ -21,8 +21,10 @@ export default function UserManagement({ open, onOpenChange }: Props) {
 
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [newRole, setNewRole] = useState<Role>("empleado");
   const [creating, setCreating] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (open && isManager && currentUser?.tenant_id) {
@@ -68,6 +70,10 @@ export default function UserManagement({ open, onOpenChange }: Props) {
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
     if (!newEmail || !newPassword) return;
+    if (newPassword !== confirmPassword) {
+      toast({ title: "Las contraseñas no coinciden", variant: "destructive" });
+      return;
+    }
     setCreating(true);
 
     // Creamos un cliente temporal que NO guarde la sesión.
@@ -100,6 +106,7 @@ export default function UserManagement({ open, onOpenChange }: Props) {
       toast({ title: "Usuario creado correctamente" });
       setNewEmail("");
       setNewPassword("");
+      setConfirmPassword("");
       setNewRole("empleado");
       // Damos 1 segundo para que el Trigger de base de datos insértese el perfil
       setTimeout(loadProfiles, 1000);
@@ -132,15 +139,41 @@ export default function UserManagement({ open, onOpenChange }: Props) {
                 required 
                 disabled={creating}
               />
-              <Input 
-                placeholder="Contraseña (min 6)" 
-                type="password" 
-                value={newPassword} 
-                onChange={e => setNewPassword(e.target.value)} 
-                required 
-                minLength={6}
-                disabled={creating}
-              />
+              <div className="relative">
+                <Input 
+                  placeholder="Contraseña (min 6)" 
+                  type={showPassword ? "text" : "password"} 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)} 
+                  required 
+                  minLength={6}
+                  disabled={creating}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
+                </button>
+              </div>
+              <div className="relative">
+                <Input 
+                  placeholder="Confirmar contraseña" 
+                  type={showPassword ? "text" : "password"} 
+                  value={confirmPassword} 
+                  onChange={e => setConfirmPassword(e.target.value)} 
+                  required 
+                  minLength={6}
+                  disabled={creating}
+                  className="pr-10"
+                />
+              </div>
               <div className="flex gap-2">
                 <Select value={newRole} onValueChange={(v) => setNewRole(v as Role)} disabled={creating}>
                   <SelectTrigger className="flex-1">
@@ -151,7 +184,7 @@ export default function UserManagement({ open, onOpenChange }: Props) {
                     <SelectItem value="manager">Manager</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button type="submit" disabled={creating || !newEmail || !newPassword}>
+                <Button type="submit" disabled={creating || !newEmail || !newPassword || !confirmPassword || newPassword !== confirmPassword}>
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Crear"}
                 </Button>
               </div>
