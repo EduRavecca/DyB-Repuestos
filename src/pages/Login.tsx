@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, KeyRound } from "lucide-react";
-import logoCp from "@/assets/logo-cp.png";
+import logoCp from "@/assets/dyb.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -15,21 +15,22 @@ export default function Login() {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
-    
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+      console.log(error);
 
       if (error) throw error;
-      
+
     } catch (error: any) {
       console.error(error);
-      toast({ 
-        title: "Error al iniciar sesión", 
-        description: error.message || "Credenciales incorrectas", 
-        variant: "destructive" 
+      toast({
+        title: "Error al iniciar sesión",
+        description: error.message || "Credenciales incorrectas",
+        variant: "destructive"
       });
       setLoading(false);
     }
